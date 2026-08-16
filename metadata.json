@@ -1,0 +1,6 @@
+{
+  "name": "GarminDash",
+  "description": "Interfaz de instrumentación en tiempo real BLE para Garmin, mapa offline MBTiles y registro de rutas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
