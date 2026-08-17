@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Teardrop Location Pointer Shape: Green #4CAF50 with White Stroke -->
+    <path
+        android:fillColor="#4CAF50"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 12,2 C 7.58,2 4,5.58 4,10 C 4,15.25 12,22 12,22 C 12,22 20,15.25 20,10 C 20,5.58 16.42,2 12,2 Z" />
+    <!-- Inner White Circle Dot -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 12,6.8 C 10.23,6.8 8.8,8.23 8.8,10 C 8.8,11.77 10.23,13.2 12,13.2 C 13.77,13.2 15.2,11.77 15.2,10 C 15.2,8.23 13.77,6.8 12,6.8 Z" />
+</vector>

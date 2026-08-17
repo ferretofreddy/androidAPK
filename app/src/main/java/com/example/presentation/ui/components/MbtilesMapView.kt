@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import com.example.R
 import com.example.data.local.MapMarkerEntity
 import com.example.data.local.TrackPointEntity
 import com.example.data.repository.MBTilesManager
@@ -143,11 +145,15 @@ fun MbtilesMapView(
                 view.overlays.add(activePolyline)
             }
 
-            // 3. Current Location Marker with Heading Arrow Indicator
+            // 3. Current Location Marker with Teardrop Icon and Heading Indicator
             try {
+                val locationIcon = ContextCompat.getDrawable(view.context, R.drawable.ic_current_location)
                 val locationMarker = Marker(view).apply {
                     position = centerGeo
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    if (locationIcon != null) {
+                        icon = locationIcon
+                    }
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                     title = "Ubicación Actual"
                     snippet = "Lat: ${String.format("%.6f", latitude)}, Lon: ${String.format("%.6f", longitude)}"
                     rotation = headingDegrees

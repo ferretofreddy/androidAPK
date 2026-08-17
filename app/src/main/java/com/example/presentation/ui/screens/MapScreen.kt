@@ -3,7 +3,12 @@ package com.example.presentation.ui.screens
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,6 +69,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -115,6 +121,17 @@ fun MapScreen(
     val selectedMbtilesFile by mapViewModel.selectedMbtilesFile.collectAsState()
     val availableRoutes by historyViewModel.routesList.collectAsState()
     val markers by mapViewModel.markers.collectAsState()
+
+    val recordingBlinkTransition = rememberInfiniteTransition(label = "recording_blink")
+    val recordingDotAlpha by recordingBlinkTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 600),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "recording_dot_alpha"
+    )
 
     var mapStatusMessage by remember { mutableStateOf("Mapa offline osmdroid listo") }
     var cameraFollow by rememberSaveable { mutableStateOf(true) }
@@ -330,7 +347,7 @@ fun MapScreen(
                                 )
                             }
 
-                            // Loaded Route Badge / Active Recording Badge
+                            // Loaded Route Badge / Active Recording Blinking Indicator
                             if (loadedHistoricalRoute != null) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Card(
@@ -363,74 +380,12 @@ fun MapScreen(
                                     }
                                 }
                             } else if (recordingState is RouteRecordingState.Recording) {
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = NeonRed.copy(alpha = 0.2f)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = BorderStroke(0.5.dp, NeonRed.copy(alpha = 0.4f))
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.FiberManualRecord,
-                                            contentDescription = null,
-                                            tint = NeonRed
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = "GRABANDO RUTA",
-                                            color = NeonRed,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Map Status Badge / Chip
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        color = if (mapStatusMessage.contains("error", ignoreCase = true) || mapStatusMessage.contains("fall", ignoreCase = true) || mapStatusMessage.contains("sin conexión", ignoreCase = true))
-                                            NeonOrange.copy(alpha = 0.15f)
-                                        else
-                                            NeonCyan.copy(alpha = 0.12f),
-                                        shape = RoundedCornerShape(6.dp)
-                                    )
-                                    .border(
-                                        0.5.dp,
-                                        if (mapStatusMessage.contains("error", ignoreCase = true) || mapStatusMessage.contains("fall", ignoreCase = true) || mapStatusMessage.contains("sin conexión", ignoreCase = true))
-                                            NeonOrange.copy(alpha = 0.4f)
-                                        else
-                                            NeonCyan.copy(alpha = 0.35f),
-                                        RoundedCornerShape(6.dp)
-                                    )
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Map,
-                                        contentDescription = null,
-                                        tint = if (mapStatusMessage.contains("error", ignoreCase = true) || mapStatusMessage.contains("fall", ignoreCase = true) || mapStatusMessage.contains("sin conexión", ignoreCase = true)) NeonOrange else NeonCyan,
-                                        modifier = Modifier.size(11.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = mapStatusMessage,
-                                        color = TextSecondary,
-                                        fontSize = 9.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .alpha(recordingDotAlpha)
+                                        .background(NeonGreen, CircleShape)
+                                )
                             }
                         }
                     }
@@ -591,44 +546,41 @@ fun MapScreen(
                 )
             }
 
-            // Button: Detener y Guardar (Visible only while recording)
+            // Button: Detener y Guardar (Visible only while recording, compact FAB without text)
             AnimatedVisibility(visible = recordingState is RouteRecordingState.Recording) {
-                Button(
+                FloatingActionButton(
                     onClick = {
                         routeNameInput = "Ruta Garmin ${System.currentTimeMillis() % 10000}"
                         showSaveDialog = true
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = NeonRed, contentColor = TextPrimary),
-                    shape = RoundedCornerShape(24.dp),
+                    containerColor = NeonRed,
+                    contentColor = Color.White,
                     modifier = Modifier.testTag("stop_save_route_button")
                 ) {
-                    Icon(imageVector = Icons.Default.Stop, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Detener y Guardar", fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = "Detener y Guardar Ruta",
+                        tint = Color.White
+                    )
                 }
             }
 
-            // Button: Grabar Ruta / Estado Grabando
-            Button(
+            // Button: Grabar Ruta (Compact FAB without text)
+            FloatingActionButton(
                 onClick = {
                     if (recordingState is RouteRecordingState.Idle || recordingState is RouteRecordingState.Saved) {
                         mapViewModel.startRecording()
                         Toast.makeText(context, "Iniciando grabación de ruta...", Toast.LENGTH_SHORT).show()
                     }
                 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (recordingState is RouteRecordingState.Recording) NeonGreen else NeonCyan,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                shape = RoundedCornerShape(24.dp),
+                containerColor = NeonCyan,
+                contentColor = Color.White,
                 modifier = Modifier.testTag("record_route_button")
             ) {
-                val icon = if (recordingState is RouteRecordingState.Recording) Icons.Default.FiberManualRecord else Icons.Default.PlayArrow
-                Icon(imageVector = icon, contentDescription = null)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = if (recordingState is RouteRecordingState.Recording) "Grabando Ruta..." else "Grabar Ruta",
-                    fontWeight = FontWeight.Bold
+                Icon(
+                    imageVector = Icons.Default.FiberManualRecord,
+                    contentDescription = "Grabar Ruta",
+                    tint = Color.White
                 )
             }
         }
