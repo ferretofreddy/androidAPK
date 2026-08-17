@@ -6,6 +6,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -19,20 +20,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -113,6 +120,12 @@ fun MapScreen(
     var topBarExpanded by rememberSaveable { mutableStateOf(false) }
     var showMbtilesSheet by remember { mutableStateOf(false) }
     var showLoadRouteSheet by remember { mutableStateOf(false) }
+    var showMarkersSheet by remember { mutableStateOf(false) }
+    var showCreateMarkerSheet by remember { mutableStateOf(false) }
+    var pendingMarkerLat by remember { mutableStateOf<Double?>(null) }
+    var pendingMarkerLon by remember { mutableStateOf<Double?>(null) }
+    var markerNameInput by remember { mutableStateOf("") }
+    var selectedMarkerColorArgb by remember { mutableStateOf(0xFF4CAF50.toInt()) }
     var showSaveDialog by remember { mutableStateOf(false) }
     var routeNameInput by remember { mutableStateOf("") }
 
@@ -186,7 +199,10 @@ fun MapScreen(
             cameraFollowsLocation = cameraFollow,
             onUserPan = { cameraFollow = false },
             onMapLongPress = { lat, lon ->
-                Toast.makeText(context, "Punto seleccionado: $lat, $lon", Toast.LENGTH_SHORT).show()
+                pendingMarkerLat = lat
+                pendingMarkerLon = lon
+                markerNameInput = ""
+                showCreateMarkerSheet = true
             },
             modifier = Modifier.fillMaxSize(),
             onMapReadyStatus = { msg -> mapStatusMessage = msg }
@@ -443,6 +459,41 @@ fun MapScreen(
                                     )
                                     Text(
                                         text = "Historial de Rutas",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = TextPrimary,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+
+                            // Option 3: Marcadores
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = CockpitSurface.copy(alpha = 0.7f)),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(0.5.dp, Color(0x33FFFFFF)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showMarkersSheet = true
+                                        topBarExpanded = false
+                                    }
+                                    .testTag("option_markers")
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Place,
+                                        contentDescription = null,
+                                        tint = NeonGreen
+                                    )
+                                    Text(
+                                        text = "Marcadores",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = TextPrimary,
                                         fontWeight = FontWeight.SemiBold,
@@ -770,6 +821,281 @@ fun MapScreen(
                     modifier = Modifier.align(Alignment.End)
                 ) {
                     Text("Cerrar", color = NeonCyan)
+                }
+            }
+        }
+    }
+
+    // Modal Sheet: Marcadores (Waypoints)
+    if (showMarkersSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showMarkersSheet = false },
+            containerColor = CockpitSurface,
+            modifier = Modifier.testTag("markers_sheet")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "Marcadores y Waypoints",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Puntos de interés guardados en el mapa",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMuted,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Button(
+                    onClick = {
+                        pendingMarkerLat = latitude
+                        pendingMarkerLon = longitude
+                        markerNameInput = ""
+                        showCreateMarkerSheet = true
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = Color.Black),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                        .testTag("new_marker_button")
+                ) {
+                    Icon(imageVector = Icons.Default.Place, contentDescription = null, tint = Color.Black)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Nuevo Marcador", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+
+                if (markers.isEmpty()) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "No hay marcadores guardados",
+                                color = TextSecondary,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Pulsa 'Nuevo Marcador' o mantén presionado cualquier punto del mapa para guardar un waypoint.",
+                                color = TextMuted,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(markers, key = { it.id }) { markerItem ->
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(14.dp)
+                                                .background(Color(markerItem.colorArgb), CircleShape)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = markerItem.name,
+                                                fontWeight = FontWeight.Bold,
+                                                color = TextPrimary,
+                                                fontSize = 14.sp
+                                            )
+                                            Text(
+                                                text = String.format(Locale.US, "%.5f°, %.5f°", markerItem.latitude, markerItem.longitude),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = TextMuted
+                                            )
+                                        }
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(
+                                            onClick = { mapViewModel.toggleMarkerVisibility(markerItem.id) }
+                                        ) {
+                                            Icon(
+                                                imageVector = if (markerItem.isVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                                contentDescription = if (markerItem.isVisible) "Ocultar marcador" else "Mostrar marcador",
+                                                tint = if (markerItem.isVisible) NeonCyan else TextMuted
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = { mapViewModel.deleteMarker(markerItem.id) }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Eliminar marcador",
+                                                tint = NeonRed
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                TextButton(
+                    onClick = { showMarkersSheet = false },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Cerrar", color = NeonCyan)
+                }
+            }
+        }
+    }
+
+    // Modal Sheet: Nuevo Marcador (Creación / Waypoint)
+    if (showCreateMarkerSheet) {
+        val markerColors = listOf(
+            0xFF4CAF50.toInt(), // verde
+            0xFF00F0FF.toInt(), // cian
+            0xFFF97316.toInt(), // naranja
+            0xFFEF4444.toInt(), // rojo
+            0xFFFFEB3B.toInt(), // amarillo
+            0xFF9C27B0.toInt()  // morado
+        )
+
+        val targetLat = pendingMarkerLat ?: latitude
+        val targetLon = pendingMarkerLon ?: longitude
+        val isCurrentLocation = targetLat == latitude && targetLon == longitude
+
+        ModalBottomSheet(
+            onDismissRequest = {
+                showCreateMarkerSheet = false
+                pendingMarkerLat = null
+                pendingMarkerLon = null
+                markerNameInput = ""
+            },
+            containerColor = CockpitSurface,
+            modifier = Modifier.testTag("create_marker_sheet")
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = "Nuevo Marcador",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = if (isCurrentLocation) "Ubicación actual"
+                           else String.format(Locale.US, "Punto seleccionado: %.6f, %.6f", targetLat, targetLon),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isCurrentLocation) NeonCyan else NeonOrange,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                OutlinedTextField(
+                    value = markerNameInput,
+                    onValueChange = { markerNameInput = it },
+                    label = { Text("Nombre del Marcador") },
+                    placeholder = { Text("Ej. Campamento, Mirador, Cruce...") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = TextMuted,
+                        focusedLabelColor = NeonCyan,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("marker_name_input")
+                )
+
+                Text(
+                    text = "Color del Marcador",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMuted,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    markerColors.forEach { colorArgb ->
+                        val isSelected = selectedMarkerColorArgb == colorArgb
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color(colorArgb), CircleShape)
+                                .then(
+                                    if (isSelected) Modifier.border(BorderStroke(2.dp, Color.White), CircleShape)
+                                    else Modifier
+                                )
+                                .clickable { selectedMarkerColorArgb = colorArgb }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = {
+                            showCreateMarkerSheet = false
+                            pendingMarkerLat = null
+                            pendingMarkerLon = null
+                            markerNameInput = ""
+                        }
+                    ) {
+                        Text("Cancelar", color = TextMuted)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            val name = markerNameInput.ifBlank { "Marcador" }
+                            mapViewModel.addMarker(
+                                name = name,
+                                latitude = targetLat,
+                                longitude = targetLon,
+                                colorArgb = selectedMarkerColorArgb
+                            )
+                            Toast.makeText(context, "Marcador '$name' guardado", Toast.LENGTH_SHORT).show()
+                            showCreateMarkerSheet = false
+                            showMarkersSheet = false
+                            pendingMarkerLat = null
+                            pendingMarkerLon = null
+                            markerNameInput = ""
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonGreen)
+                    ) {
+                        Text("Guardar", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
