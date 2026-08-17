@@ -2,8 +2,14 @@ package com.example.presentation.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +28,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.PlayArrow
@@ -50,9 +57,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -100,10 +109,29 @@ fun MapScreen(
 
     var mapStatusMessage by remember { mutableStateOf("Mapa offline osmdroid listo") }
     var cameraFollow by rememberSaveable { mutableStateOf(true) }
+    var topBarExpanded by rememberSaveable { mutableStateOf(false) }
     var showMbtilesSheet by remember { mutableStateOf(false) }
     var showLoadRouteSheet by remember { mutableStateOf(false) }
     var showSaveDialog by remember { mutableStateOf(false) }
     var routeNameInput by remember { mutableStateOf("") }
+
+    val density = LocalDensity.current
+    val dragThresholdPx = remember(density) { with(density) { 60.dp.toPx() } }
+    var dragAccumulated by remember { mutableStateOf(0f) }
+    val topBarDraggableState = rememberDraggableState { delta ->
+        dragAccumulated += delta
+        if (dragAccumulated > dragThresholdPx) {
+            topBarExpanded = true
+            dragAccumulated = 0f
+        } else if (dragAccumulated < -dragThresholdPx) {
+            topBarExpanded = false
+            dragAccumulated = 0f
+        }
+    }
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (topBarExpanded) 180f else 0f,
+        label = "topBarArrowRotation"
+    )
 
     val availableMbtilesFiles = remember(showMbtilesSheet) {
         mapViewModel.mbTilesManager.listAvailableMbtilesFiles()
@@ -159,7 +187,7 @@ fun MapScreen(
             onMapReadyStatus = { msg -> mapStatusMessage = msg }
         )
 
-        // Top Navigation Persistent Bar (Scrim gradient container + translucent Card)
+        // Top Navigation Persistent Bar ("Persiana" desplegable)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -181,6 +209,12 @@ fun MapScreen(
                 border = BorderStroke(1.dp, Color(0x33FFFFFF)),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .animateContentSize()
+                    .draggable(
+                        state = topBarDraggableState,
+                        orientation = Orientation.Vertical,
+                        onDragStopped = { dragAccumulated = 0f }
+                    )
                     .testTag("top_navigation_bar")
             ) {
                 Column(
@@ -188,143 +222,247 @@ fun MapScreen(
                         .fillMaxWidth()
                         .padding(8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    // Tap area on the persistent information header
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { topBarExpanded = !topBarExpanded }
                     ) {
-                        // Position Coordinates & GNSS Precision
-                        Column(modifier = Modifier.weight(1.2f)) {
-                            Text(
-                                text = "UBICACIÓN ACTUAL",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 8.sp
-                            )
-                            Text(
-                                text = String.format(Locale.US, "%.6f°, %.6f°", latitude, longitude),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
-                            Text(
-                                text = String.format(Locale.US, "GPS: ±%.1fm", gpsAccuracyMeters),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = gpsAccuracyColor,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 8.sp
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Position Coordinates & GNSS Precision
+                            Column(modifier = Modifier.weight(1.2f)) {
+                                Text(
+                                    text = "UBICACIÓN ACTUAL",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextMuted,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 8.sp
+                                )
+                                Text(
+                                    text = String.format(Locale.US, "%.6f°, %.6f°", latitude, longitude),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                                Text(
+                                    text = String.format(Locale.US, "GPS: ±%.1fm", gpsAccuracyMeters),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = gpsAccuracyColor,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 8.sp
+                                )
+                            }
+
+                            // True Heading & Compass Accuracy
+                            Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "RUMBO VERDADERO",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextMuted,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 8.sp
+                                )
+                                Text(
+                                    text = String.format(Locale.US, "%03d° %s", headingDegrees.toInt(), cardinalDirection),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = NeonCyan,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = if (isCalibrationNeeded) "⚠️ CALIBRAR" else "Brújula: ${compassAccuracy.name}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isCalibrationNeeded) NeonOrange else compassAccuracyColor,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 8.sp
+                                )
+                            }
                         }
 
-                        // True Heading & Compass Accuracy
-                        Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "RUMBO VERDADERO",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 8.sp
-                            )
-                            Text(
-                                text = String.format(Locale.US, "%03d° %s", headingDegrees.toInt(), cardinalDirection),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = NeonCyan,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                            Text(
-                                text = if (isCalibrationNeeded) "⚠️ CALIBRAR" else "Brújula: ${compassAccuracy.name}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isCalibrationNeeded) NeonOrange else compassAccuracyColor,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 8.sp
-                            )
-                        }
-                    }
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Route Start Distance
+                            Column {
+                                Text(
+                                    text = "DISTANCIA DESDE INICIO",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextMuted,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 8.sp
+                                )
+                                Text(
+                                    text = distanceDisplayString,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = if (recordingState is RouteRecordingState.Recording) NeonGreen else TextSecondary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Route Start Distance
-                        Column {
-                            Text(
-                                text = "DISTANCIA DESDE INICIO",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 8.sp
-                            )
-                            Text(
-                                text = distanceDisplayString,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = if (recordingState is RouteRecordingState.Recording) NeonGreen else TextSecondary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        // Loaded Route Badge / Active Recording Badge
-                        if (loadedHistoricalRoute != null) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Loaded Route Badge / Active Recording Badge
+                            if (loadedHistoricalRoute != null) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = NeonOrange.copy(alpha = 0.2f)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(0.5.dp, NeonOrange.copy(alpha = 0.4f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Ruta: ${loadedHistoricalRoute?.route?.name}",
+                                                color = NeonOrange,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.width(2.dp))
+                                            IconButton(
+                                                onClick = { mapViewModel.clearHistoricalRoute() },
+                                                modifier = Modifier.padding(0.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Clear,
+                                                    contentDescription = "Quitar Ruta",
+                                                    tint = NeonOrange
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if (recordingState is RouteRecordingState.Recording) {
                                 Card(
-                                    colors = CardDefaults.cardColors(containerColor = NeonOrange.copy(alpha = 0.2f)),
+                                    colors = CardDefaults.cardColors(containerColor = NeonRed.copy(alpha = 0.2f)),
                                     shape = RoundedCornerShape(8.dp),
-                                    border = BorderStroke(0.5.dp, NeonOrange.copy(alpha = 0.4f))
+                                    border = BorderStroke(0.5.dp, NeonRed.copy(alpha = 0.4f))
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        Icon(
+                                            imageVector = Icons.Default.FiberManualRecord,
+                                            contentDescription = null,
+                                            tint = NeonRed
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            text = "Ruta: ${loadedHistoricalRoute?.route?.name}",
-                                            color = NeonOrange,
+                                            text = "GRABANDO RUTA",
+                                            color = NeonRed,
                                             fontSize = 9.sp,
                                             fontWeight = FontWeight.Bold
                                         )
-                                        Spacer(modifier = Modifier.width(2.dp))
-                                        IconButton(
-                                            onClick = { mapViewModel.clearHistoricalRoute() },
-                                            modifier = Modifier.padding(0.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Clear,
-                                                contentDescription = "Quitar Ruta",
-                                                tint = NeonOrange
-                                            )
-                                        }
                                     }
                                 }
                             }
-                        } else if (recordingState is RouteRecordingState.Recording) {
+                        }
+                    }
+
+                    // Collapsible Map Options Section
+                    AnimatedVisibility(visible = topBarExpanded) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            // Option 1: MBTiles
                             Card(
-                                colors = CardDefaults.cardColors(containerColor = NeonRed.copy(alpha = 0.2f)),
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(0.5.dp, NeonRed.copy(alpha = 0.4f))
+                                colors = CardDefaults.cardColors(containerColor = CockpitSurface.copy(alpha = 0.7f)),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(0.5.dp, Color(0x33FFFFFF)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showMbtilesSheet = true
+                                        topBarExpanded = false
+                                    }
+                                    .testTag("option_mbtiles")
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.FiberManualRecord,
+                                        imageVector = Icons.Default.FolderZip,
                                         contentDescription = null,
-                                        tint = NeonRed
+                                        tint = NeonCyan
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "GRABANDO RUTA",
-                                        color = NeonRed,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
+                                        text = "Cargar / Descargar Mapa MBTiles",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = TextPrimary,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+
+                            // Option 2: Route History
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = CockpitSurface.copy(alpha = 0.7f)),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(0.5.dp, Color(0x33FFFFFF)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        showLoadRouteSheet = true
+                                        topBarExpanded = false
+                                    }
+                                    .testTag("option_route_history")
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.History,
+                                        contentDescription = null,
+                                        tint = NeonOrange
+                                    )
+                                    Text(
+                                        text = "Historial de Rutas",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = TextPrimary,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp
                                     )
                                 }
                             }
                         }
+                    }
+
+                    // Handle Row at the Bottom of the Card
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { topBarExpanded = !topBarExpanded }
+                            .padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (topBarExpanded) "Colapsar menú" else "Desplegar opciones",
+                            tint = TextMuted,
+                            modifier = Modifier.rotate(arrowRotation)
+                        )
                     }
                 }
             }
@@ -338,26 +476,6 @@ fun MapScreen(
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Button: Cargar Mapa Offline (.mbtiles)
-            FloatingActionButton(
-                onClick = { showMbtilesSheet = true },
-                containerColor = CockpitSurface,
-                contentColor = NeonCyan,
-                modifier = Modifier.testTag("mbtiles_fab")
-            ) {
-                Icon(imageVector = Icons.Default.FolderZip, contentDescription = "Cargar Mapa MBTiles")
-            }
-
-            // Button: Cargar Ruta Histórica (Room)
-            FloatingActionButton(
-                onClick = { showLoadRouteSheet = true },
-                containerColor = CockpitSurface,
-                contentColor = NeonOrange,
-                modifier = Modifier.testTag("load_route_fab")
-            ) {
-                Icon(imageVector = Icons.Default.History, contentDescription = "Cargar Ruta Histórica")
-            }
-
             // Button: Toggle Seguir / Explorar Ubicación
             FloatingActionButton(
                 onClick = { cameraFollow = true },
