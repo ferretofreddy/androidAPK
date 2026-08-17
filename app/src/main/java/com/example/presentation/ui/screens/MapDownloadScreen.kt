@@ -257,9 +257,9 @@ fun MapDownloadScreen(
                                     GeoPoint(regionSelection.minLat, regionSelection.minLon)
                                 )
                                 points = pts
-                                fillColor = AndroidColor.argb(50, 0, 229, 255) // Semi-transparent NeonCyan
-                                strokeColor = AndroidColor.argb(255, 0, 229, 255)
-                                strokeWidth = 3f
+                                fillPaint.color = AndroidColor.argb(50, 0, 229, 255) // Semi-transparent NeonCyan
+                                outlinePaint.color = AndroidColor.argb(255, 0, 229, 255)
+                                outlinePaint.strokeWidth = 3f
                             }
                             mapView.overlays.add(poly)
                             mapView.invalidate()

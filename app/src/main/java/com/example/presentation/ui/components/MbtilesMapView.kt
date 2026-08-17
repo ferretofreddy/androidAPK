@@ -28,6 +28,7 @@ import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
 import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
@@ -61,7 +62,7 @@ fun MbtilesMapView(
         MapView(context).apply {
             setMultiTouchControls(true)
             controller.setZoom(16.0)
-            setBuiltInZoomControls(false)
+            zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
         }
     }
 

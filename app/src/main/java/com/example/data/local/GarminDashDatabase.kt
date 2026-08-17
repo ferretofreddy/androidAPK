@@ -73,7 +73,7 @@ abstract class GarminDashDatabase : RoomDatabase() {
                     "garmindash_database.db"
                 )
                 .addMigrations(MIGRATION_1_2, MIGRATION_3_4)
-                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
                 INSTANCE = instance
                 instance
