@@ -2,6 +2,7 @@ package com.example.presentation.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +50,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -71,7 +74,6 @@ import java.io.File
 import java.util.Locale
 
 import androidx.compose.material.icons.filled.CloudDownload
-import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -157,149 +159,170 @@ fun MapScreen(
             onMapReadyStatus = { msg -> mapStatusMessage = msg }
         )
 
-        // Top Navigation Persistent Bar (High contrast solid overlay)
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xEE121824)),
-            shape = RoundedCornerShape(14.dp),
+        // Top Navigation Persistent Bar (Scrim gradient container + translucent Card)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
                 .align(Alignment.TopCenter)
-                .testTag("top_navigation_bar")
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xCC000000),
+                            Color(0x33000000),
+                            Color.Transparent
+                        )
+                    )
+                )
+                .padding(horizontal = 10.dp, vertical = 8.dp)
         ) {
-            Column(
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0x8C121824)),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, Color(0x33FFFFFF)),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp)
+                    .testTag("top_navigation_bar")
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
                 ) {
-                    // Position Coordinates & GNSS Precision
-                    Column(modifier = Modifier.weight(1.2f)) {
-                        Text(
-                            text = "UBICACIÓN ACTUAL",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 9.sp
-                        )
-                        Text(
-                            text = String.format(Locale.US, "%.6f°, %.6f°", latitude, longitude),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                        Text(
-                            text = String.format(Locale.US, "GPS: ±%.1fm", gpsAccuracyMeters),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = gpsAccuracyColor,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 9.sp
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Position Coordinates & GNSS Precision
+                        Column(modifier = Modifier.weight(1.2f)) {
+                            Text(
+                                text = "UBICACIÓN ACTUAL",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 8.sp
+                            )
+                            Text(
+                                text = String.format(Locale.US, "%.6f°, %.6f°", latitude, longitude),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                            Text(
+                                text = String.format(Locale.US, "GPS: ±%.1fm", gpsAccuracyMeters),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = gpsAccuracyColor,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 8.sp
+                            )
+                        }
+
+                        // True Heading & Compass Accuracy
+                        Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "RUMBO VERDADERO",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 8.sp
+                            )
+                            Text(
+                                text = String.format(Locale.US, "%03d° %s", headingDegrees.toInt(), cardinalDirection),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NeonCyan,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = if (isCalibrationNeeded) "⚠️ CALIBRAR" else "Brújula: ${compassAccuracy.name}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isCalibrationNeeded) NeonOrange else compassAccuracyColor,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 8.sp
+                            )
+                        }
                     }
 
-                    // True Heading & Compass Accuracy
-                    Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "RUMBO VERDADERO",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 9.sp
-                        )
-                        Text(
-                            text = String.format(Locale.US, "%03d° %s", headingDegrees.toInt(), cardinalDirection),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = NeonCyan,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                        Text(
-                            text = if (isCalibrationNeeded) "⚠️ CALIBRAR" else "Brújula: ${compassAccuracy.name}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isCalibrationNeeded) NeonOrange else compassAccuracyColor,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 9.sp
-                        )
-                    }
-                }
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Route Start Distance
+                        Column {
+                            Text(
+                                text = "DISTANCIA DESDE INICIO",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 8.sp
+                            )
+                            Text(
+                                text = distanceDisplayString,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = if (recordingState is RouteRecordingState.Recording) NeonGreen else TextSecondary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Route Start Distance
-                    Column {
-                        Text(
-                            text = "DISTANCIA DESDE INICIO",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 9.sp
-                        )
-                        Text(
-                            text = distanceDisplayString,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = if (recordingState is RouteRecordingState.Recording) NeonGreen else TextSecondary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    // Loaded Route Badge / Active Recording Badge
-                    if (loadedHistoricalRoute != null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = NeonOrange.copy(alpha = 0.2f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                        // Loaded Route Badge / Active Recording Badge
+                        if (loadedHistoricalRoute != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = NeonOrange.copy(alpha = 0.2f)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = BorderStroke(0.5.dp, NeonOrange.copy(alpha = 0.4f))
                                 ) {
-                                    Text(
-                                        text = "Ruta: ${loadedHistoricalRoute?.route?.name}",
-                                        color = NeonOrange,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    IconButton(
-                                        onClick = { mapViewModel.clearHistoricalRoute() },
-                                        modifier = Modifier.padding(0.dp)
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Clear,
-                                            contentDescription = "Quitar Ruta",
-                                            tint = NeonOrange
+                                        Text(
+                                            text = "Ruta: ${loadedHistoricalRoute?.route?.name}",
+                                            color = NeonOrange,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold
                                         )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        IconButton(
+                                            onClick = { mapViewModel.clearHistoricalRoute() },
+                                            modifier = Modifier.padding(0.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Clear,
+                                                contentDescription = "Quitar Ruta",
+                                                tint = NeonOrange
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        }
-                    } else if (recordingState is RouteRecordingState.Recording) {
-                        Card(colors = CardDefaults.cardColors(containerColor = NeonRed.copy(alpha = 0.2f))) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                        } else if (recordingState is RouteRecordingState.Recording) {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = NeonRed.copy(alpha = 0.2f)),
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(0.5.dp, NeonRed.copy(alpha = 0.4f))
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.FiberManualRecord,
-                                    contentDescription = null,
-                                    tint = NeonRed
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "GRABANDO RUTA",
-                                    color = NeonRed,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.FiberManualRecord,
+                                        contentDescription = null,
+                                        tint = NeonRed
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "GRABANDO RUTA",
+                                        color = NeonRed,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
