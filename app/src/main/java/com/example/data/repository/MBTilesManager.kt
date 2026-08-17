@@ -6,7 +6,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.MapTileProviderArray
-import org.osmdroid.tileprovider.MapTileProviderBasic
 import org.osmdroid.tileprovider.modules.ArchiveFileFactory
 import org.osmdroid.tileprovider.modules.IArchiveFile
 import org.osmdroid.tileprovider.modules.MBTilesFileArchive
@@ -14,8 +13,6 @@ import org.osmdroid.tileprovider.modules.MapTileApproximater
 import org.osmdroid.tileprovider.modules.MapTileDownloader
 import org.osmdroid.tileprovider.modules.MapTileFileArchiveProvider
 import org.osmdroid.tileprovider.modules.MapTileModuleProviderBase
-import org.osmdroid.tileprovider.modules.TileWriter
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.tileprovider.util.SimpleRegisterReceiver
 import org.osmdroid.views.MapView
@@ -24,8 +21,8 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Manager for local MBTiles vector and raster map archives in osmdroid.
- * Uses MBTilesFileArchive.getDatabaseFileArchive(file) to attach archives
- * for 100% offline map rendering, combined with dynamic hybrid online/offline tile providers.
+ * Uses in-memory session tile caching with MapTileDownloader (no disk cache)
+ * and optional local MBTiles archive provider.
  */
 class MBTilesManager(private val context: Context) {
 
@@ -48,12 +45,9 @@ class MBTilesManager(private val context: Context) {
     }
 
     fun setupOfflineMapView(mapView: MapView, selectedMbtilesFile: File?): String {
-        // OsmDroid global configuration
+        // OsmDroid global configuration: in-memory session tile cache (1500 tiles)
         Configuration.getInstance().userAgentValue = "GarminDash/1.0 (Android)"
-        Configuration.getInstance().osmdroidBasePath = getMbtilesDirectory()
-        Configuration.getInstance().osmdroidTileCache = File(getMbtilesDirectory(), "cache")
-        Configuration.getInstance().cacheMapTileCount = 100
-        Configuration.getInstance().tileFileSystemCacheMaxBytes = 50 * 1024 * 1024L
+        Configuration.getInstance().cacheMapTileCount = 1500.toShort()
 
         val hasInternet = MapDownloadManager(context).isNetworkAvailable()
 
@@ -104,7 +98,6 @@ class MBTilesManager(private val context: Context) {
         val testTileY = ((1.0 - Math.log(Math.tan(testLatRad) + 1.0 / Math.cos(testLatRad)) / Math.PI) / 2.0 * (1 shl testZoom)).toInt().coerceIn(0, (1 shl testZoom) - 1)
         val testTileUrl = "$baseUrl$testZoom/$testTileX/$testTileY$extension"
 
-        var testResultMsg = ""
         if (hasInternet) {
             Thread {
                 try {
@@ -135,11 +128,10 @@ class MBTilesManager(private val context: Context) {
         val registerReceiver = SimpleRegisterReceiver(context)
 
         var archiveLoadedMsg: String? = null
+        val providers = mutableListOf<MapTileModuleProviderBase>()
 
+        // a) Proveedor de archivo .mbtiles si existe archivo local
         if (targetFile != null && targetFile.exists()) {
-            // Local MBTiles Archive Mode / Hybrid Provider Array
-            val providers = mutableListOf<MapTileModuleProviderBase>()
-
             try {
                 ArchiveFileFactory.registerArchiveFileProvider(
                     MBTilesFileArchive::class.java,
@@ -157,46 +149,33 @@ class MBTilesManager(private val context: Context) {
             } catch (e: Exception) {
                 Log.e(TAG, "Error initializing MBTiles database archive: ${e.message}")
             }
+        }
 
-            val tileWriter = TileWriter()
-            val approximater = MapTileApproximater()
-            providers.add(approximater)
-            Log.i(TAG, "Provider registered: ${approximater::class.java.simpleName}")
+        val approximater = MapTileApproximater()
+        providers.add(approximater)
 
-            if (hasInternet) {
-                val networkProvider = MapTileDownloader(activeTileSource, tileWriter)
-                approximater.addProvider(networkProvider)
-                providers.add(networkProvider)
-                Log.i(TAG, "Provider registered: ${networkProvider::class.java.simpleName} (tileSource=${activeTileSource.name()})")
-            }
+        // b) MapTileDownloader(activeTileSource) SIN TileWriter si hay internet
+        if (hasInternet) {
+            val downloader = MapTileDownloader(activeTileSource)
+            approximater.addProvider(downloader)
+            providers.add(downloader)
+            Log.i(TAG, "Provider registered: ${downloader::class.java.simpleName} (tileSource=${activeTileSource.name()}, memory-only cache)")
+        }
 
-            val tileProviderArray = MapTileProviderArray(
-                activeTileSource,
-                registerReceiver,
-                providers.toTypedArray()
-            )
+        val tileProviderArray = MapTileProviderArray(
+            activeTileSource,
+            registerReceiver,
+            providers.toTypedArray()
+        )
 
-            mapView.setTileProvider(tileProviderArray)
-            mapView.setTileSource(activeTileSource)
+        mapView.setTileProvider(tileProviderArray)
+        mapView.setTileSource(activeTileSource)
 
-            return when {
-                archiveLoadedMsg != null && hasInternet -> "$archiveLoadedMsg (Híbrido Online/Offline)"
-                archiveLoadedMsg != null -> "$archiveLoadedMsg (Offline)"
-                else -> "Modo mapa offline activo."
-            }
-        } else {
-            // Pure Online / Default Provider using MapTileProviderBasic for complete cache & downloader integration
-            val tileProvider = MapTileProviderBasic(context, activeTileSource)
-            mapView.setTileProvider(tileProvider)
-            mapView.setTileSource(activeTileSource)
-
-            Log.i(TAG, "Provider configured: MapTileProviderBasic with tileSource=${activeTileSource.name()}")
-
-            return if (hasInternet) {
-                "Modo online activo (${preset.name})"
-            } else {
-                "Sin conexión a internet. Sin archivo MBTiles cargado."
-            }
+        return when {
+            archiveLoadedMsg != null && hasInternet -> "$archiveLoadedMsg (Híbrido Online/Offline)"
+            archiveLoadedMsg != null -> "$archiveLoadedMsg (Offline)"
+            hasInternet -> "Modo online activo (${preset.name})"
+            else -> "Sin conexión a internet. Sin archivo MBTiles cargado."
         }
     }
 }
