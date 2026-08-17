@@ -42,6 +42,8 @@ class MBTilesManager(private val context: Context) {
     }
 
     fun setupOfflineMapView(mapView: MapView, selectedMbtilesFile: File?): String {
+        Configuration.getInstance().userAgentValue = "GarminDash/1.0 (Android)"
+
         // Configure osmdroid parameters and memory tile cache limits
         Configuration.getInstance().osmdroidBasePath = getMbtilesDirectory()
         Configuration.getInstance().osmdroidTileCache = File(getMbtilesDirectory(), "cache")
@@ -86,14 +88,16 @@ class MBTilesManager(private val context: Context) {
         }
 
         if (hasInternet) {
-            val tileUrlTemplate = TileSourceConfig(context).getActiveTileUrlTemplate()
+            val template = TileSourceConfig(context).getActiveTileUrlTemplate()
+            val baseUrl = template.substringBefore("{").trimEnd('/')
+            val extension = template.substringAfter(".png", ".png")
             val onlineTileSource = XYTileSource(
                 "online",
                 0,
                 19,
                 256,
-                ".png",
-                arrayOf(tileUrlTemplate)
+                extension,
+                arrayOf(baseUrl)
             )
             val networkProvider = MapTileDownloader(onlineTileSource)
             providers.add(networkProvider)
