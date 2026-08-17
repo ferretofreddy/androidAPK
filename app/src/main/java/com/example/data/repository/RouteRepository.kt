@@ -1,6 +1,7 @@
 package com.example.data.repository
 
 import android.content.Context
+import com.example.data.local.MapMarkerDao
 import com.example.data.local.RouteDao
 import com.example.data.local.RouteEntity
 import com.example.data.local.TrackPointEntity
@@ -17,7 +18,8 @@ import java.util.TimeZone
 
 class RouteRepository(
     private val context: Context,
-    private val routeDao: RouteDao
+    private val routeDao: RouteDao,
+    private val mapMarkerDao: MapMarkerDao
 ) {
 
     val allRoutes: Flow<List<RouteEntity>> = routeDao.getAllRoutes()
@@ -105,6 +107,12 @@ class RouteRepository(
 
         sb.append("    </trkseg>\n")
         sb.append("  </trk>\n")
+
+        val visibleMarkers = mapMarkerDao.getAll().filter { it.isVisible }
+        for (marker in visibleMarkers) {
+            sb.append("  <wpt lat=\"").append(marker.latitude).append("\" lon=\"").append(marker.longitude).append("\"><name>").append(escapeXml(marker.name)).append("</name></wpt>\n")
+        }
+
         sb.append("</gpx>\n")
 
         FileWriter(file).use { writer ->

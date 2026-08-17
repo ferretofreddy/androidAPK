@@ -12,6 +12,9 @@ interface MapMarkerDao {
     @Query("SELECT * FROM map_markers ORDER BY createdAt DESC")
     fun observeAll(): Flow<List<MapMarkerEntity>>
 
+    @Query("SELECT * FROM map_markers")
+    suspend fun getAll(): List<MapMarkerEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(marker: MapMarkerEntity): Long
 

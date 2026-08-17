@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
         sensorManager.startSensorsAndLocation()
 
         val database = GarminDashDatabase.getDatabase(applicationContext)
-        routeRepository = RouteRepository(applicationContext, database.routeDao())
+        routeRepository = RouteRepository(applicationContext, database.routeDao(), database.mapMarkerDao())
 
         requestAppPermissions()
 
