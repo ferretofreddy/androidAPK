@@ -5,6 +5,8 @@ import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.data.local.GarminDashDatabase
+import com.example.data.local.MapMarkerEntity
 import com.example.data.local.TrackPointEntity
 import com.example.data.repository.MBTilesManager
 import com.example.data.repository.RouteRepository
@@ -14,8 +16,10 @@ import com.example.domain.model.RouteWithPoints
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -26,6 +30,14 @@ class MapViewModel(
 ) : ViewModel() {
 
     val mbTilesManager = MBTilesManager(context)
+    private val mapMarkerDao = GarminDashDatabase.getDatabase(context).mapMarkerDao()
+
+    val markers: StateFlow<List<MapMarkerEntity>> = mapMarkerDao.observeAll()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     // Recording State Management
     private val _recordingState = MutableStateFlow<RouteRecordingState>(RouteRecordingState.Idle)
@@ -171,6 +183,35 @@ class MapViewModel(
         _recordedDistanceMeters.value = 0.0
         _recordingDurationSeconds.value = 0L
         _startLocation.value = null
+    }
+
+    fun addMarker(name: String, latitude: Double, longitude: Double, colorArgb: Int) {
+        viewModelScope.launch {
+            val marker = MapMarkerEntity(
+                name = name,
+                latitude = latitude,
+                longitude = longitude,
+                colorArgb = colorArgb,
+                isVisible = true,
+                createdAt = System.currentTimeMillis()
+            )
+            mapMarkerDao.insert(marker)
+        }
+    }
+
+    fun toggleMarkerVisibility(id: Long) {
+        viewModelScope.launch {
+            val currentMarker = markers.value.find { it.id == id }
+            if (currentMarker != null) {
+                mapMarkerDao.setVisible(id, !currentMarker.isVisible)
+            }
+        }
+    }
+
+    fun deleteMarker(id: Long) {
+        viewModelScope.launch {
+            mapMarkerDao.deleteById(id)
+        }
     }
 
     class Factory(

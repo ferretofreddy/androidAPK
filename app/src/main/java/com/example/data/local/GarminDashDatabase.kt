@@ -8,14 +8,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [RouteEntity::class, TrackPointEntity::class, DownloadedMapEntity::class],
-    version = 3,
+    entities = [RouteEntity::class, TrackPointEntity::class, DownloadedMapEntity::class, MapMarkerEntity::class],
+    version = 4,
     exportSchema = false
 )
 abstract class GarminDashDatabase : RoomDatabase() {
 
     abstract fun routeDao(): RouteDao
     abstract fun downloadedMapDao(): DownloadedMapDao
+    abstract fun mapMarkerDao(): MapMarkerDao
 
     companion object {
         @Volatile
@@ -46,6 +47,24 @@ abstract class GarminDashDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `map_markers` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `latitude` REAL NOT NULL,
+                        `longitude` REAL NOT NULL,
+                        `colorArgb` INTEGER NOT NULL,
+                        `isVisible` INTEGER NOT NULL DEFAULT 1,
+                        `createdAt` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getDatabase(context: Context): GarminDashDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -53,7 +72,7 @@ abstract class GarminDashDatabase : RoomDatabase() {
                     GarminDashDatabase::class.java,
                     "garmindash_database.db"
                 )
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_3_4)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
