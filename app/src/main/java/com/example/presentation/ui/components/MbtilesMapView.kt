@@ -3,6 +3,9 @@ package com.example.presentation.ui.components
 import android.content.Context
 import android.graphics.Color as AndroidColor
 import android.graphics.Paint
+import android.graphics.drawable.LayerDrawable
+import android.graphics.drawable.ShapeDrawable
+import android.graphics.drawable.shapes.OvalShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -14,14 +17,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.data.local.MapMarkerEntity
 import com.example.data.local.TrackPointEntity
 import com.example.data.repository.MBTilesManager
 import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import java.io.File
@@ -34,15 +40,18 @@ fun MbtilesMapView(
     headingDegrees: Float,
     activeTrackPoints: List<TrackPointEntity> = emptyList(),
     historicalTrackPoints: List<TrackPointEntity> = emptyList(),
+    markers: List<MapMarkerEntity> = emptyList(),
     selectedMbtilesFile: File? = null,
     cameraFollowsLocation: Boolean = true,
     onUserPan: (() -> Unit)? = null,
+    onMapLongPress: ((lat: Double, lon: Double) -> Unit)? = null,
     modifier: Modifier = Modifier,
     onMapReadyStatus: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val mbTilesManager = remember { MBTilesManager(context) }
     val currentOnUserPan by rememberUpdatedState(onUserPan)
+    val currentOnMapLongPress by rememberUpdatedState(onMapLongPress)
     val isProgrammaticCentering = remember { AtomicBoolean(false) }
 
     val mapView = remember {
@@ -97,6 +106,19 @@ fun MbtilesMapView(
 
             view.overlays.clear()
 
+            // 0. Map Events Overlay (Long Press detection)
+            val mapEventsOverlay = MapEventsOverlay(object : MapEventsReceiver {
+                override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean = false
+                override fun longPressHelper(p: GeoPoint?): Boolean {
+                    if (p != null) {
+                        currentOnMapLongPress?.invoke(p.latitude, p.longitude)
+                        return true
+                    }
+                    return false
+                }
+            })
+            view.overlays.add(mapEventsOverlay)
+
             // 1. Draw Historical Route Polyline (Orange)
             if (historicalTrackPoints.isNotEmpty()) {
                 val historicalPolyline = Polyline().apply {
@@ -133,6 +155,44 @@ fun MbtilesMapView(
                 view.overlays.add(locationMarker)
             } catch (e: Exception) {
                 // Ignore marker creation if view is detaching
+            }
+
+            // 4. Custom Waypoints / Map Markers
+            val density = view.context.resources.displayMetrics.density
+            val sizePx = (22 * density).toInt().coerceAtLeast(1)
+            val strokePx = (2 * density).toInt().coerceAtLeast(1)
+
+            markers.filter { it.isVisible }.forEach { markerEntity ->
+                try {
+                    val fillShape = ShapeDrawable(OvalShape()).apply {
+                        paint.isAntiAlias = true
+                        paint.color = markerEntity.colorArgb
+                        paint.style = Paint.Style.FILL
+                        intrinsicWidth = sizePx
+                        intrinsicHeight = sizePx
+                    }
+                    val strokeShape = ShapeDrawable(OvalShape()).apply {
+                        paint.isAntiAlias = true
+                        paint.color = AndroidColor.WHITE
+                        paint.style = Paint.Style.STROKE
+                        paint.strokeWidth = strokePx.toFloat()
+                        intrinsicWidth = sizePx
+                        intrinsicHeight = sizePx
+                    }
+                    val markerIcon = LayerDrawable(arrayOf(fillShape, strokeShape)).apply {
+                        setBounds(0, 0, sizePx, sizePx)
+                    }
+
+                    val markerOverlay = Marker(view).apply {
+                        position = GeoPoint(markerEntity.latitude, markerEntity.longitude)
+                        title = markerEntity.name
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                        icon = markerIcon
+                    }
+                    view.overlays.add(markerOverlay)
+                } catch (e: Exception) {
+                    // Ignore individual marker rendering errors
+                }
             }
 
             // Center camera only when cameraFollowsLocation is true

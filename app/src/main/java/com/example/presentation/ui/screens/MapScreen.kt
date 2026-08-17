@@ -106,6 +106,7 @@ fun MapScreen(
     val loadedHistoricalRoute by mapViewModel.loadedHistoricalRoute.collectAsState()
     val selectedMbtilesFile by mapViewModel.selectedMbtilesFile.collectAsState()
     val availableRoutes by historyViewModel.routesList.collectAsState()
+    val markers by mapViewModel.markers.collectAsState()
 
     var mapStatusMessage by remember { mutableStateOf("Mapa offline osmdroid listo") }
     var cameraFollow by rememberSaveable { mutableStateOf(true) }
@@ -180,9 +181,13 @@ fun MapScreen(
             headingDegrees = headingDegrees,
             activeTrackPoints = activeTrackPoints,
             historicalTrackPoints = loadedHistoricalRoute?.trackPoints ?: emptyList(),
+            markers = markers.filter { it.isVisible },
             selectedMbtilesFile = selectedMbtilesFile,
             cameraFollowsLocation = cameraFollow,
             onUserPan = { cameraFollow = false },
+            onMapLongPress = { lat, lon ->
+                Toast.makeText(context, "Punto seleccionado: $lat, $lon", Toast.LENGTH_SHORT).show()
+            },
             modifier = Modifier.fillMaxSize(),
             onMapReadyStatus = { msg -> mapStatusMessage = msg }
         )
