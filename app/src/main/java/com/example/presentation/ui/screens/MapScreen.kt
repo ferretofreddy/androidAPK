@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
@@ -44,6 +45,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,6 +97,7 @@ fun MapScreen(
     val availableRoutes by historyViewModel.routesList.collectAsState()
 
     var mapStatusMessage by remember { mutableStateOf("Mapa offline osmdroid listo") }
+    var cameraFollow by rememberSaveable { mutableStateOf(true) }
     var showMbtilesSheet by remember { mutableStateOf(false) }
     var showLoadRouteSheet by remember { mutableStateOf(false) }
     var showSaveDialog by remember { mutableStateOf(false) }
@@ -148,6 +151,8 @@ fun MapScreen(
             activeTrackPoints = activeTrackPoints,
             historicalTrackPoints = loadedHistoricalRoute?.trackPoints ?: emptyList(),
             selectedMbtilesFile = selectedMbtilesFile,
+            cameraFollowsLocation = cameraFollow,
+            onUserPan = { cameraFollow = false },
             modifier = Modifier.fillMaxSize(),
             onMapReadyStatus = { msg -> mapStatusMessage = msg }
         )
@@ -328,6 +333,19 @@ fun MapScreen(
                 modifier = Modifier.testTag("load_route_fab")
             ) {
                 Icon(imageVector = Icons.Default.History, contentDescription = "Cargar Ruta Histórica")
+            }
+
+            // Button: Toggle Seguir / Explorar Ubicación
+            FloatingActionButton(
+                onClick = { cameraFollow = true },
+                containerColor = if (cameraFollow) NeonCyan else CockpitSurface,
+                contentColor = if (cameraFollow) Color.Black else TextPrimary,
+                modifier = Modifier.testTag("center_my_location_fab")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MyLocation,
+                    contentDescription = "Centrar y seguir mi ubicación"
+                )
             }
 
             // Button: Detener y Guardar (Visible only while recording)

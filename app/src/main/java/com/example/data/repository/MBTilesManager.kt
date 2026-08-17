@@ -7,9 +7,11 @@ import org.osmdroid.tileprovider.MapTileProviderArray
 import org.osmdroid.tileprovider.modules.ArchiveFileFactory
 import org.osmdroid.tileprovider.modules.IArchiveFile
 import org.osmdroid.tileprovider.modules.MBTilesFileArchive
+import org.osmdroid.tileprovider.modules.MapTileDownloader
 import org.osmdroid.tileprovider.modules.MapTileFileArchiveProvider
 import org.osmdroid.tileprovider.modules.MapTileModuleProviderBase
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.tileprovider.util.SimpleRegisterReceiver
 import org.osmdroid.views.MapView
 import java.io.File
@@ -17,7 +19,7 @@ import java.io.File
 /**
  * Manager for local MBTiles vector and raster map archives in osmdroid.
  * Uses MBTilesFileArchive.getDatabaseFileArchive(file) to attach archives
- * for 100% offline map rendering without network calls.
+ * for 100% offline map rendering, combined with dynamic hybrid online/offline tile providers.
  */
 class MBTilesManager(private val context: Context) {
 
@@ -46,11 +48,18 @@ class MBTilesManager(private val context: Context) {
         Configuration.getInstance().cacheMapTileCount = 100 // Cap memory tile cache size
         Configuration.getInstance().tileFileSystemCacheMaxBytes = 50 * 1024 * 1024L // 50MB max disk cache
 
-        // Force osmdroid into offline mode
-        mapView.setUseDataConnection(false)
+        val hasInternet = MapDownloadManager(context).isNetworkAvailable()
+        mapView.setUseDataConnection(hasInternet)
 
         val mbtilesFiles = listAvailableMbtilesFiles()
         val targetFile = selectedMbtilesFile ?: mbtilesFiles.firstOrNull()
+
+        val registerReceiver = SimpleRegisterReceiver(context)
+        val tileSource = TileSourceFactory.DEFAULT_TILE_SOURCE
+
+        val providers = mutableListOf<MapTileModuleProviderBase>()
+
+        var archiveLoadedMsg: String? = null
 
         if (targetFile != null && targetFile.exists()) {
             try {
@@ -63,26 +72,46 @@ class MBTilesManager(private val context: Context) {
                 // Instantiate explicit MBTiles database file archive
                 val mbtilesArchive: IArchiveFile = MBTilesFileArchive.getDatabaseFileArchive(targetFile)
 
-                val registerReceiver = SimpleRegisterReceiver(context)
-                val tileSource = TileSourceFactory.DEFAULT_TILE_SOURCE
-
-                val moduleProvider = MapTileFileArchiveProvider(
+                val fileArchiveProvider = MapTileFileArchiveProvider(
                     registerReceiver,
                     tileSource,
                     arrayOf(mbtilesArchive)
                 )
-
-                val tileProviderArray = MapTileProviderArray(
-                    tileSource,
-                    registerReceiver,
-                    arrayOf<MapTileModuleProviderBase>(moduleProvider)
-                )
-
-                mapView.setTileProvider(tileProviderArray)
+                providers.add(fileArchiveProvider)
+                archiveLoadedMsg = "Mapa MBTiles cargado: ${targetFile.name}"
                 Log.i(TAG, "Attached MBTiles database file archive: ${targetFile.name}")
-                return "Mapa MBTiles cargado: ${targetFile.name}"
             } catch (e: Exception) {
                 Log.e(TAG, "Error initializing MBTiles database archive: ${e.message}")
+            }
+        }
+
+        if (hasInternet) {
+            val tileUrlTemplate = TileSourceConfig(context).getActiveTileUrlTemplate()
+            val onlineTileSource = XYTileSource(
+                "online",
+                0,
+                19,
+                256,
+                ".png",
+                arrayOf(tileUrlTemplate)
+            )
+            val networkProvider = MapTileDownloader(onlineTileSource)
+            providers.add(networkProvider)
+        }
+
+        if (providers.isNotEmpty()) {
+            val tileProviderArray = MapTileProviderArray(
+                tileSource,
+                registerReceiver,
+                providers.toTypedArray()
+            )
+            mapView.setTileProvider(tileProviderArray)
+
+            return when {
+                archiveLoadedMsg != null && hasInternet -> "$archiveLoadedMsg (Modo Híbrido Online/Offline)"
+                archiveLoadedMsg != null -> archiveLoadedMsg
+                hasInternet -> "Modo online activo (Fuente de tiles conectada)."
+                else -> "Modo mapa offline activo. Coloca archivos .mbtiles en la carpeta 'GarminDash_MBTiles'."
             }
         }
 
@@ -90,3 +119,4 @@ class MBTilesManager(private val context: Context) {
         return "Modo mapa offline activo. Coloca archivos .mbtiles en la carpeta 'GarminDash_MBTiles'."
     }
 }
+

@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -15,11 +17,15 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.data.local.TrackPointEntity
 import com.example.data.repository.MBTilesManager
 import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Composable
 fun MbtilesMapView(
@@ -29,11 +35,15 @@ fun MbtilesMapView(
     activeTrackPoints: List<TrackPointEntity> = emptyList(),
     historicalTrackPoints: List<TrackPointEntity> = emptyList(),
     selectedMbtilesFile: File? = null,
+    cameraFollowsLocation: Boolean = true,
+    onUserPan: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     onMapReadyStatus: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val mbTilesManager = remember { MBTilesManager(context) }
+    val currentOnUserPan by rememberUpdatedState(onUserPan)
+    val isProgrammaticCentering = remember { AtomicBoolean(false) }
 
     val mapView = remember {
         MapView(context).apply {
@@ -44,9 +54,23 @@ fun MbtilesMapView(
     }
 
     DisposableEffect(mapView) {
+        val mapListener = object : MapListener {
+            override fun onScroll(event: ScrollEvent?): Boolean {
+                if (!isProgrammaticCentering.get()) {
+                    currentOnUserPan?.invoke()
+                }
+                return false
+            }
+
+            override fun onZoom(event: ZoomEvent?): Boolean {
+                return false
+            }
+        }
+        mapView.addMapListener(mapListener)
         mapView.onResume()
         onDispose {
             try {
+                mapView.removeMapListener(mapListener)
                 mapView.onPause()
                 mapView.onDetach()
             } catch (e: Exception) {
@@ -111,9 +135,13 @@ fun MbtilesMapView(
                 // Ignore marker creation if view is detaching
             }
 
-            // Center camera
-            if (latitude != 0.0 && longitude != 0.0) {
+            // Center camera only when cameraFollowsLocation is true
+            if (cameraFollowsLocation && latitude != 0.0 && longitude != 0.0) {
+                isProgrammaticCentering.set(true)
                 view.controller.setCenter(centerGeo)
+                view.post {
+                    isProgrammaticCentering.set(false)
+                }
             }
             view.invalidate()
         }

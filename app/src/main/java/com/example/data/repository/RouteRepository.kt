@@ -87,7 +87,7 @@ class RouteRepository(
 
         val sb = StringBuilder()
         sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
-        sb.append("<gpx version=\"1.1\" creator=\"GarminDash Native BLE App\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n")
+        sb.append("<gpx version=\"1.1\" creator=\"GarminDash\" xmlns=\"http://www.topografix.com/GPX/1/1\">\n")
         sb.append("  <metadata>\n")
         sb.append("    <name>").append(escapeXml(route.name)).append("</name>\n")
         sb.append("    <time>").append(isoFormat.format(Date(route.startTimeTimestamp))).append("</time>\n")
