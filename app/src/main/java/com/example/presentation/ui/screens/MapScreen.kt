@@ -71,6 +71,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.model.RouteRecordingState
@@ -384,6 +385,51 @@ fun MapScreen(
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
+                                }
+                            }
+                        }
+
+                        // Map Status Badge / Chip
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        color = if (mapStatusMessage.contains("error", ignoreCase = true) || mapStatusMessage.contains("fall", ignoreCase = true) || mapStatusMessage.contains("sin conexión", ignoreCase = true))
+                                            NeonOrange.copy(alpha = 0.15f)
+                                        else
+                                            NeonCyan.copy(alpha = 0.12f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
+                                    .border(
+                                        0.5.dp,
+                                        if (mapStatusMessage.contains("error", ignoreCase = true) || mapStatusMessage.contains("fall", ignoreCase = true) || mapStatusMessage.contains("sin conexión", ignoreCase = true))
+                                            NeonOrange.copy(alpha = 0.4f)
+                                        else
+                                            NeonCyan.copy(alpha = 0.35f),
+                                        RoundedCornerShape(6.dp)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Map,
+                                        contentDescription = null,
+                                        tint = if (mapStatusMessage.contains("error", ignoreCase = true) || mapStatusMessage.contains("fall", ignoreCase = true) || mapStatusMessage.contains("sin conexión", ignoreCase = true)) NeonOrange else NeonCyan,
+                                        modifier = Modifier.size(11.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = mapStatusMessage,
+                                        color = TextSecondary,
+                                        fontSize = 9.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
                         }
