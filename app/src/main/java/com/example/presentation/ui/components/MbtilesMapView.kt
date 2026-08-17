@@ -45,6 +45,7 @@ fun MbtilesMapView(
     markers: List<MapMarkerEntity> = emptyList(),
     selectedMbtilesFile: File? = null,
     cameraFollowsLocation: Boolean = true,
+    rotateWithHeading: Boolean = false,
     onUserPan: (() -> Unit)? = null,
     onMapLongPress: ((lat: Double, lon: Double) -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -156,7 +157,7 @@ fun MbtilesMapView(
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                     title = "Ubicación Actual"
                     snippet = "Lat: ${String.format("%.6f", latitude)}, Lon: ${String.format("%.6f", longitude)}"
-                    rotation = headingDegrees
+                    rotation = if (rotateWithHeading) 0f else headingDegrees
                 }
                 view.overlays.add(locationMarker)
             } catch (e: Exception) {
@@ -200,6 +201,9 @@ fun MbtilesMapView(
                     // Ignore individual marker rendering errors
                 }
             }
+
+            // Orientation: Garmin course-up mode or North-up
+            view.setMapOrientation(if (rotateWithHeading) -headingDegrees else 0f)
 
             // Center camera only when cameraFollowsLocation is true
             if (cameraFollowsLocation && latitude != 0.0 && longitude != 0.0) {

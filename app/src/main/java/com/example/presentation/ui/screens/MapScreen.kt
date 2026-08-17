@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -58,6 +59,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -135,6 +138,7 @@ fun MapScreen(
 
     var mapStatusMessage by remember { mutableStateOf("Mapa offline osmdroid listo") }
     var cameraFollow by rememberSaveable { mutableStateOf(true) }
+    var mapRotatesWithHeading by rememberSaveable { mutableStateOf(false) }
     var topBarExpanded by rememberSaveable { mutableStateOf(false) }
     var showMbtilesSheet by remember { mutableStateOf(false) }
     var showLoadRouteSheet by remember { mutableStateOf(false) }
@@ -215,6 +219,7 @@ fun MapScreen(
             markers = markers.filter { it.isVisible },
             selectedMbtilesFile = selectedMbtilesFile,
             cameraFollowsLocation = cameraFollow,
+            rotateWithHeading = mapRotatesWithHeading,
             onUserPan = { cameraFollow = false },
             onMapLongPress = { lat, lon ->
                 pendingMarkerLat = lat
@@ -499,6 +504,52 @@ fun MapScreen(
                                         color = TextPrimary,
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = 13.sp
+                                    )
+                                }
+                            }
+
+                            // Option 4: Rotar con el rumbo
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = CockpitSurface.copy(alpha = 0.7f)),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(0.5.dp, Color(0x33FFFFFF)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("option_rotate_heading")
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.RotateRight,
+                                            contentDescription = null,
+                                            tint = NeonCyan
+                                        )
+                                        Text(
+                                            text = "Rotar con el rumbo",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = TextPrimary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                    Switch(
+                                        checked = mapRotatesWithHeading,
+                                        onCheckedChange = { mapRotatesWithHeading = it },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color.White,
+                                            checkedTrackColor = NeonCyan,
+                                            uncheckedThumbColor = TextMuted,
+                                            uncheckedTrackColor = CockpitSurface
+                                        )
                                     )
                                 }
                             }
