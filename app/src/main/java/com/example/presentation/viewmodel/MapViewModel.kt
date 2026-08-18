@@ -62,6 +62,9 @@ class MapViewModel(
     private val _loadedHistoricalRoute = MutableStateFlow<RouteWithPoints?>(null)
     val loadedHistoricalRoute: StateFlow<RouteWithPoints?> = _loadedHistoricalRoute.asStateFlow()
 
+    private val _visibleHistoricalRoutes = MutableStateFlow<List<RouteWithPoints>>(emptyList())
+    val visibleHistoricalRoutes: StateFlow<List<RouteWithPoints>> = _visibleHistoricalRoutes.asStateFlow()
+
     private val _selectedMbtilesFile = MutableStateFlow<File?>(null)
     val selectedMbtilesFile: StateFlow<File?> = _selectedMbtilesFile.asStateFlow()
 
@@ -71,6 +74,19 @@ class MapViewModel(
 
     fun selectMbtilesFile(file: File?) {
         _selectedMbtilesFile.value = file
+    }
+
+    fun toggleRouteVisibility(routeId: Long) {
+        if (_visibleHistoricalRoutes.value.any { it.route.id == routeId }) {
+            _visibleHistoricalRoutes.value = _visibleHistoricalRoutes.value.filter { it.route.id != routeId }
+        } else {
+            viewModelScope.launch {
+                val route = routeRepository.getRouteWithPoints(routeId)
+                if (route != null) {
+                    _visibleHistoricalRoutes.value = _visibleHistoricalRoutes.value + route
+                }
+            }
+        }
     }
 
     fun loadHistoricalRoute(routeId: Long) {

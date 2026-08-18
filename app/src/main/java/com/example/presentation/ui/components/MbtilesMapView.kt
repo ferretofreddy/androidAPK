@@ -22,6 +22,7 @@ import com.example.R
 import com.example.data.local.MapMarkerEntity
 import com.example.data.local.TrackPointEntity
 import com.example.data.repository.MBTilesManager
+import com.example.domain.model.RouteWithPoints
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.events.MapListener
@@ -43,6 +44,7 @@ fun MbtilesMapView(
     headingDegrees: Float,
     activeTrackPoints: List<TrackPointEntity> = emptyList(),
     historicalTrackPoints: List<TrackPointEntity> = emptyList(),
+    visibleRoutes: List<RouteWithPoints> = emptyList(),
     markers: List<MapMarkerEntity> = emptyList(),
     selectedMbtilesFile: File? = null,
     cameraFollowsLocation: Boolean = true,
@@ -123,7 +125,21 @@ fun MbtilesMapView(
             })
             view.overlays.add(mapEventsOverlay)
 
-            // 1. Draw Historical Route Polyline (Orange)
+            // 1. Draw Visible Historical Routes Polyline (Orange)
+            visibleRoutes.forEach { routeWithPoints ->
+                if (routeWithPoints.trackPoints.isNotEmpty()) {
+                    val routePolyline = Polyline().apply {
+                        outlinePaint.color = AndroidColor.parseColor("#F97316") // Neon / Sleek Orange
+                        outlinePaint.strokeWidth = 9f
+                        outlinePaint.strokeCap = Paint.Cap.ROUND
+                    }
+                    val geoPoints = routeWithPoints.trackPoints.map { GeoPoint(it.latitude, it.longitude) }
+                    routePolyline.setPoints(geoPoints)
+                    view.overlays.add(routePolyline)
+                }
+            }
+
+            // 1b. Draw Historical Route Polyline (Orange - single preview fallback/detail)
             if (historicalTrackPoints.isNotEmpty()) {
                 val historicalPolyline = Polyline().apply {
                     outlinePaint.color = AndroidColor.parseColor("#F97316") // Neon / Sleek Orange

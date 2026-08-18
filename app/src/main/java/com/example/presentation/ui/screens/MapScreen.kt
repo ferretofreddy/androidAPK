@@ -121,6 +121,7 @@ fun MapScreen(
     val activeTrackPoints by mapViewModel.activeTrackPoints.collectAsState()
     val startLocation by mapViewModel.startLocation.collectAsState()
     val loadedHistoricalRoute by mapViewModel.loadedHistoricalRoute.collectAsState()
+    val visibleHistoricalRoutes by mapViewModel.visibleHistoricalRoutes.collectAsState()
     val selectedMbtilesFile by mapViewModel.selectedMbtilesFile.collectAsState()
     val availableRoutes by historyViewModel.routesList.collectAsState()
     val markers by mapViewModel.markers.collectAsState()
@@ -216,6 +217,7 @@ fun MapScreen(
             headingDegrees = headingDegrees,
             activeTrackPoints = activeTrackPoints,
             historicalTrackPoints = loadedHistoricalRoute?.trackPoints ?: emptyList(),
+            visibleRoutes = visibleHistoricalRoutes,
             markers = markers.filter { it.isVisible },
             selectedMbtilesFile = selectedMbtilesFile,
             cameraFollowsLocation = cameraFollow,
