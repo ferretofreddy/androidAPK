@@ -215,6 +215,8 @@ fun GarminDashApp(
                     if (showMapDownloadManager) {
                         MapDownloadScreen(
                             downloadViewModel = downloadViewModel,
+                            initialLatitude = telemetry.latitude,
+                            initialLongitude = telemetry.longitude,
                             onBackClick = { showMapDownloadManager = false },
                             onSelectToLoad = { file ->
                                 mapViewModel.selectMbtilesFile(file)
