@@ -597,40 +597,25 @@ fun MapScreen(
                 )
             }
 
-            // Button: Detener y Guardar (Visible only while recording, compact FAB without text)
-            AnimatedVisibility(visible = recordingState is RouteRecordingState.Recording) {
-                FloatingActionButton(
-                    onClick = {
-                        routeNameInput = "Ruta Garmin ${System.currentTimeMillis() % 10000}"
-                        showSaveDialog = true
-                    },
-                    containerColor = NeonRed,
-                    contentColor = Color.White,
-                    modifier = Modifier.testTag("stop_save_route_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Stop,
-                        contentDescription = "Detener y Guardar Ruta",
-                        tint = Color.White
-                    )
-                }
-            }
-
-            // Button: Grabar Ruta (Compact FAB without text)
+            // Button: Toggle Grabar / Detener y Guardar Ruta (Single compact FAB)
+            val isRecording = recordingState is RouteRecordingState.Recording
             FloatingActionButton(
                 onClick = {
-                    if (recordingState is RouteRecordingState.Idle || recordingState is RouteRecordingState.Saved) {
+                    if (isRecording) {
+                        routeNameInput = "Ruta Garmin ${System.currentTimeMillis() % 10000}"
+                        showSaveDialog = true
+                    } else if (recordingState is RouteRecordingState.Idle || recordingState is RouteRecordingState.Saved) {
                         mapViewModel.startRecording()
                         Toast.makeText(context, "Iniciando grabación de ruta...", Toast.LENGTH_SHORT).show()
                     }
                 },
-                containerColor = NeonCyan,
+                containerColor = if (isRecording) NeonRed else NeonCyan,
                 contentColor = Color.White,
                 modifier = Modifier.testTag("record_route_button")
             ) {
                 Icon(
-                    imageVector = Icons.Default.FiberManualRecord,
-                    contentDescription = "Grabar Ruta",
+                    imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.FiberManualRecord,
+                    contentDescription = if (isRecording) "Detener y Guardar" else "Grabar Ruta",
                     tint = Color.White
                 )
             }
