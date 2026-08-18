@@ -8,6 +8,7 @@ import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.example.data.local.DownloadedMapEntity
 import com.example.data.local.GarminDashDatabase
@@ -56,12 +57,33 @@ class MapDownloadViewModel(private val context: Context) : ViewModel() {
     private val _isNetworkAvailable = MutableStateFlow(false)
     val isNetworkAvailable: StateFlow<Boolean> = _isNetworkAvailable.asStateFlow()
 
+    private val _isDownloading = MutableStateFlow(false)
+    val isDownloading: StateFlow<Boolean> = _isDownloading.asStateFlow()
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     init {
         checkConnectivity()
         recalculateEstimates(_regionSelection.value)
+        observeWorkManagerStatus()
+    }
+
+    private fun observeWorkManagerStatus() {
+        viewModelScope.launch {
+            workManager.getWorkInfosByTagFlow("map_download").collect { workInfos ->
+                if (workInfos.isNotEmpty()) {
+                    val hasActive = workInfos.any { workInfo ->
+                        workInfo.state == WorkInfo.State.ENQUEUED ||
+                            workInfo.state == WorkInfo.State.RUNNING ||
+                            workInfo.state == WorkInfo.State.BLOCKED
+                    }
+                    _isDownloading.value = hasActive
+                } else {
+                    _isDownloading.value = false
+                }
+            }
+        }
     }
 
     fun checkConnectivity() {
@@ -108,6 +130,8 @@ class MapDownloadViewModel(private val context: Context) : ViewModel() {
     }
 
     fun startDownload(mapIdToUpdate: Long = 0L) {
+        if (_isDownloading.value) return
+
         checkConnectivity()
         if (!_isNetworkAvailable.value) {
             _errorMessage.value = "No hay conexión a internet. Verifique su red para descargar mapas."
@@ -133,8 +157,10 @@ class MapDownloadViewModel(private val context: Context) : ViewModel() {
         val workRequest = OneTimeWorkRequestBuilder<MapDownloadWorker>()
             .setInputData(inputData)
             .setConstraints(constraints)
+            .addTag("map_download")
             .build()
 
+        _isDownloading.value = true
         workManager.enqueue(workRequest)
         _errorMessage.value = null
     }

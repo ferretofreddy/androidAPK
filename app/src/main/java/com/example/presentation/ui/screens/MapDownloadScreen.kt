@@ -24,12 +24,14 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RangeSlider
@@ -82,9 +84,11 @@ fun MapDownloadScreen(
     val estimatedTileCount by downloadViewModel.estimatedTileCount.collectAsState()
     val estimatedSizeBytes by downloadViewModel.estimatedSizeBytes.collectAsState()
     val isNetworkAvailable by downloadViewModel.isNetworkAvailable.collectAsState()
+    val isDownloading by downloadViewModel.isDownloading.collectAsState()
     val errorMessage by downloadViewModel.errorMessage.collectAsState()
 
     var osmdroidMapView by remember { mutableStateOf<MapView?>(null) }
+    var showConfirmationDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         downloadViewModel.checkConnectivity()
@@ -330,8 +334,8 @@ fun MapDownloadScreen(
                 // Start download button
                 item {
                     Button(
-                        onClick = { downloadViewModel.startDownload() },
-                        enabled = isNetworkAvailable && estimatedTileCount > 0,
+                        onClick = { showConfirmationDialog = true },
+                        enabled = isNetworkAvailable && estimatedTileCount > 0 && !isDownloading,
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("start_download_button"),
@@ -343,7 +347,7 @@ fun MapDownloadScreen(
                         Icon(Icons.Default.CloudDownload, contentDescription = null, tint = Color.Black)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Iniciar Descarga",
+                            text = if (isDownloading) "Descargando..." else "Iniciar Descarga",
                             color = Color.Black,
                             fontWeight = FontWeight.Bold
                         )
@@ -351,5 +355,68 @@ fun MapDownloadScreen(
                 }
             }
         }
+    }
+
+    if (showConfirmationDialog) {
+        val mb = estimatedSizeBytes / (1024.0 * 1024.0)
+        AlertDialog(
+            onDismissRequest = { showConfirmationDialog = false },
+            containerColor = CockpitSurface,
+            title = {
+                Text(
+                    text = "Confirmar Descarga",
+                    color = NeonCyan,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "¿Desea iniciar la descarga del área seleccionada?",
+                        color = TextPrimary,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = "• Nombre: ${regionSelection.name}",
+                        color = TextSecondary,
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        text = "• Tiles estimados: $estimatedTileCount tiles",
+                        color = NeonOrange,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        text = "• Tamaño estimado: ${String.format(Locale.US, "%.1f MB", mb)}",
+                        color = if (mb > 150) NeonRed else NeonGreen,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmationDialog = false
+                        downloadViewModel.startDownload()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = NeonGreen,
+                        contentColor = Color.Black
+                    )
+                ) {
+                    Text("Confirmar Descarga", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showConfirmationDialog = false }
+                ) {
+                    Text("Cancelar", color = TextSecondary)
+                }
+            }
+        )
     }
 }
