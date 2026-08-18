@@ -129,7 +129,7 @@ class MainActivity : ComponentActivity() {
 enum class NavigationTab(val title: String) {
     DASHBOARD("Cockpit"),
     MAP("Mapa Offline"),
-    HISTORY("Historial")
+    HISTORY("Recursos")
 }
 
 @Composable
@@ -186,8 +186,8 @@ fun GarminDashApp(
                 NavigationBarItem(
                     selected = selectedTab == NavigationTab.HISTORY,
                     onClick = { selectedTab = NavigationTab.HISTORY },
-                    icon = { Icon(imageVector = Icons.Default.History, contentDescription = "Historial") },
-                    label = { Text("Historial", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                    icon = { Icon(imageVector = Icons.Default.History, contentDescription = "Recursos") },
+                    label = { Text("Recursos", fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = com.example.ui.theme.SleekOrange,
                         selectedTextColor = com.example.ui.theme.SleekOrange,
@@ -240,12 +240,14 @@ fun GarminDashApp(
 
                 NavigationTab.HISTORY -> RouteHistoryScreen(
                     routes = routesList,
+                    downloadedMaps = downloadViewModel.downloadedMaps.collectAsState().value,
+                    markers = mapViewModel.markers.collectAsState().value,
+                    visibleRouteIds = mapViewModel.visibleHistoricalRoutes.collectAsState().value.map { it.route.id }.toSet(),
+                    onDeleteMap = { mapEntity -> downloadViewModel.deleteMap(mapEntity) },
                     onDeleteRoute = { routeId -> historyViewModel.deleteRoute(routeId) },
-                    onExportGpx = { routeId, onResult ->
-                        historyViewModel.exportGpx(routeId) { file ->
-                            onResult(file?.absolutePath ?: "Error exportando GPX")
-                        }
-                    },
+                    onToggleRouteVisibility = { id -> mapViewModel.toggleRouteVisibility(id) },
+                    onToggleMarker = { id -> mapViewModel.toggleMarkerVisibility(id) },
+                    onDeleteMarker = { id -> mapViewModel.deleteMarker(id) },
                     onGetRouteDetail = { routeId -> historyViewModel.getRouteDetail(routeId) },
                     onLoadRouteOnMap = { routeId ->
                         mapViewModel.loadHistoricalRoute(routeId)
